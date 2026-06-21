@@ -1,0 +1,53 @@
+#!/bin/sh
+# claude-loadout :: corporate commit-msg hook
+#   1) strip AI attribution (Co-Authored-By Claude / "Generated with Claude Code" /
+#      noreply@anthropic.com)
+#   2) ensure a Signed-off-by trailer for the configured corporate identity
+#   3) require a Jira issue key IF configured
+# Wired via core.hooksPath in corp-git.gitconfig, so it runs for your corporate
+# repos only. Receives the commit-message file path as $1. Identity and Jira keys
+# come from git config (written by /corporate-gitlab:setup) - nothing is hardcoded.
+
+MSG="$1"
+[ -n "$MSG" ] || exit 0
+[ -f "$MSG" ] || exit 0
+
+# 1) remove AI attribution lines (only replace if the result is non-empty, so a
+#    grep error or a degenerate message never wipes the file)
+TMP="$(mktemp 2>/dev/null || echo "$MSG.cl.tmp")"
+if grep -viE '^[[:space:]]*co-authored-by:.*(claude|anthropic)' "$MSG" 2>/dev/null \
+   | grep -viE '(generated with .*claude code|noreply@anthropic\.com)' > "$TMP" 2>/dev/null \
+   && [ -s "$TMP" ]; then
+  mv "$TMP" "$MSG"
+else
+  rm -f "$TMP" 2>/dev/null
+fi
+
+# 2) ensure sign-off is present (idempotent). Identity = the repo's configured
+#    user.name/user.email (the conditional corporate identity in corporate repos).
+NAME="$(git config user.name 2>/dev/null || true)"
+EMAIL="$(git config user.email 2>/dev/null || true)"
+if [ -n "$NAME" ] && [ -n "$EMAIL" ]; then
+  SIGNOFF="Signed-off-by: $NAME <$EMAIL>"
+  if ! grep -qiF "$SIGNOFF" "$MSG"; then
+    printf '\n%s\n' "$SIGNOFF" >> "$MSG"
+  fi
+fi
+
+# 3) require a Jira issue key IF configured. /corporate-gitlab:setup writes your
+#    project keys (from CORP_GIT_JIRA_KEYS) to git config corpgit.jiraKeys, e.g.
+#      git config --global corpgit.jiraKeys "ABC|DEF"
+#    Leave unset to let Claude / the corporate-gitlab skill handle tracking without a
+#    hard gate. This only checks a key is PRESENT; verifying the issue actually exists
+#    in Jira is done by Claude via the Jira MCP (a git hook has no MCP access).
+JIRA_KEYS="$(git config --get corpgit.jirakeys 2>/dev/null || true)"
+if [ -n "$JIRA_KEYS" ] && ! grep -qE "($JIRA_KEYS)-[0-9]+" "$MSG"; then
+  echo "" >&2
+  echo "commit-msg: corporate commit must reference a Jira issue (e.g. ${JIRA_KEYS%%|*}-123)." >&2
+  echo "Ask Claude to find or create the tracking issue (it uses the Jira MCP), then put" >&2
+  echo "the key in the commit message. Bypass once if you must: git commit --no-verify" >&2
+  echo "" >&2
+  exit 1
+fi
+
+exit 0

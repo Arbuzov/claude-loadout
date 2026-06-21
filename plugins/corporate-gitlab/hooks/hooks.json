@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git push *)",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/fork-guard.mjs"],
+            "statusMessage": "fork-guard: corporate push policy",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

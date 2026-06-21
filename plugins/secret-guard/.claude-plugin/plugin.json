@@ -1,0 +1,7 @@
+{
+  "name": "secret-guard",
+  "version": "1.0.0",
+  "description": "Pre-commit secret gate. A PreToolUse hook scans the staged diff before every git commit and denies it on a finding; a subagent does the semantic review regex misses. No setup, no dependencies.",
+  "author": { "name": "Serge Arbuzov" },
+  "keywords": ["security", "secrets", "pre-commit", "hook", "git"]
+}

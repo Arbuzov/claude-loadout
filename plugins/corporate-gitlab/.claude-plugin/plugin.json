@@ -1,0 +1,7 @@
+{
+  "name": "corporate-gitlab",
+  "version": "1.0.0",
+  "description": "Corporate GitLab workflow (host you configure). Auto-loads a fork->MR push guard hook and a skill teaching the fork->MR + Jira flow. Run /corporate-gitlab:setup once per machine (reads CORP_GIT_* env vars) to wire the conditional git identity, sign-off + Jira-key commit-msg hook, and attribution-off setting (the parts a plugin cannot do declaratively).",
+  "author": { "name": "Serge Arbuzov" },
+  "keywords": ["git", "gitlab", "corporate", "workflow", "merge-request"]
+}

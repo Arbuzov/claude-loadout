@@ -1,0 +1,3 @@
+# Local Claude Code machine/session settings — not part of the published loadout.
+# (The plugins live under .claude-plugin/ and plugins/, which ARE tracked.)
+.claude/
