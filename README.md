@@ -1,8 +1,16 @@
 # claude-loadout
 
-Personal Claude Code loadout, packaged as a **plugin marketplace** — so it travels
-to any machine or project with two commands instead of hand-edited settings. Two
-plugins:
+[![test](https://github.com/Arbuzov/claude-loadout/actions/workflows/test.yml/badge.svg)](https://github.com/Arbuzov/claude-loadout/actions/workflows/test.yml)
+
+Two git safety nets that run automatically inside the [Claude Code](https://code.claude.com)
+AI coding agent — a pre-commit secret scanner and a corporate fork→MR push guard.
+Both are **deterministic hooks**: they fire on the agent's own git commands, so the
+guarantee doesn't depend on the model remembering to behave. They complement, not
+replace, tools like gitleaks (the secret scanner pairs a regex gate with a semantic
+review subagent).
+
+Packaged as a **plugin marketplace** — so the loadout travels to any machine or
+project with two commands instead of hand-edited settings. Two plugins:
 
 | Plugin | What it gives you | Setup |
 |--------|-------------------|-------|
