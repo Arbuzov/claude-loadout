@@ -2,18 +2,17 @@
   "name": "claude-loadout",
   "owner": { "name": "Serge Arbuzov" },
   "description": "Personal Claude Code loadout: a pre-commit secret gate and a configurable corporate GitLab fork->MR workflow. Add this marketplace on any machine, install the plugins you want.",
-  "metadata": { "pluginRoot": "./plugins" },
   "plugins": [
     {
       "name": "secret-guard",
-      "source": "secret-guard",
+      "source": "./plugins/secret-guard",
       "description": "Pre-commit secret gate: a PreToolUse hook scans staged changes and blocks commits carrying secrets, plus a semantic review subagent. Zero config.",
       "version": "1.0.0",
       "author": { "name": "Serge Arbuzov" }
     },
     {
       "name": "corporate-gitlab",
-      "source": "corporate-gitlab",
+      "source": "./plugins/corporate-gitlab",
       "description": "Configurable corporate GitLab workflow: fork->MR push guard, commit identity + sign-off + Jira-key gate, and a skill teaching the flow. Set CORP_GIT_* env vars, then run /corporate-gitlab:setup once per machine.",
       "version": "1.0.0",
       "author": { "name": "Serge Arbuzov" }
