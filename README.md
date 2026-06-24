@@ -28,7 +28,7 @@ The hooks, agent, and skill **auto-load on install** — no more editing
 From any project (the marketplace can be a git URL or a local clone):
 
 ```
-/plugin marketplace add <git-url-or-local-path-to-this-repo>
+/plugin marketplace add https://github.com/Arbuzov/claude-loadout.git
 /plugin install secret-guard@claude-loadout
 /plugin install corporate-gitlab@claude-loadout       # corporate machines only
 ```
@@ -114,7 +114,8 @@ the host, namespace, identity, and Jira keys via environment variables at setup.
 
 `setup` reads your corporate values from the environment, so they live on your
 machine, never in this repo. Set them, then run `/corporate-gitlab:setup` (or call
-`setup.ps1` / `setup.sh` directly). Required:
+`setup.ps1` / `setup.sh` directly). If you skip setting them, `/corporate-gitlab:setup`
+asks for the values interactively. Required:
 
 | Variable | What | Example |
 |----------|------|---------|
