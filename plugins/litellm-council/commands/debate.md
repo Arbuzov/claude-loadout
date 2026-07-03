@@ -1,10 +1,10 @@
 ---
-description: Two-round council debate - each model answers, then sees the others' answers and refines or rebuts. Surfaces where positions converge vs. hold. Reads LITELLM_* (or /litellm-council:setup config). curl + jq, no MCP.
+description: Two-round council debate - each model answers, then sees the others' answers and refines or rebuts. Surfaces where positions converge vs. hold. Reads LITELLM_* (or /litellm-council:setup config). Node, no MCP.
 ---
 
 Run a two-round debate across the council models on the user's LiteLLM proxy: round 1 each
 model answers blind; round 2 each model sees all round-1 answers and revises or rebuts. Then
-report what shifted and what remains contested. Uses the bundled scripts (`curl` + `jq`).
+report what shifted and what remains contested. Runs through the bundled Node scripts.
 
 ## 1. Get the question
 Use the text the user passed with the command. If none, ask for one and wait. Same privacy
@@ -15,19 +15,20 @@ Round-1 answers are captured per model in a temp dir, concatenated, and fed back
 The `trap` cleans the temp dir on every exit path:
 
     ROOT="${CLAUDE_PLUGIN_ROOT}"
+    node "$ROOT/scripts/config.mjs" >/dev/null || { echo "not configured - run /litellm-council:setup"; exit 1; }
     DIR="$(mktemp -d)"; trap 'rm -rf "$DIR"' EXIT
     Q="$(cat <<'EOF'
     <paste the user's question here, verbatim>
     EOF
     )"
-    bash "$ROOT/scripts/council-models.sh" > "$DIR/models"
+    node "$ROOT/scripts/council-models.mjs" > "$DIR/models"
 
     echo "# Round 1 - blind answers"
     i=0
     while read -r M; do
       i=$((i+1)); printf '%s\n' "$M" > "$DIR/m.$i"
       echo "### $M"
-      printf '%s' "$Q" | bash "$ROOT/scripts/ask-model.sh" "$M" | tee "$DIR/a.$i"
+      printf '%s' "$Q" | node "$ROOT/scripts/ask-model.mjs" "$M" | tee "$DIR/a.$i"
       echo
     done < "$DIR/models"
     N=$i
@@ -40,7 +41,7 @@ The `trap` cleans the temp dir on every exit path:
     while read -r M; do
       echo "### $M"
       printf 'Original question:\n%s\n\nAll reviewers gave these round-1 answers:\n%s\n\nWhere do you disagree, and what is your refined answer?' "$Q" "$ALL" \
-        | bash "$ROOT/scripts/ask-model.sh" "$M"
+        | node "$ROOT/scripts/ask-model.mjs" "$M"
       echo
     done < "$DIR/models"
 

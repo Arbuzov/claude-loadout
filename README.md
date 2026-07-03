@@ -17,7 +17,7 @@ git safety nets above, plus a cross-model review helper):
 |--------|-------------------|-------|
 | **secret-guard** | Pre-commit secret gate (hook) + semantic review subagent | none — works on install |
 | **corporate-gitlab** | fork→MR push guard (hook) + workflow skill + commit identity/sign-off/Jira gate | set `CORP_GIT_*` env, then `/corporate-gitlab:setup` once per machine |
-| **litellm-council** | Cross-model council over your LiteLLM proxy — review a diff, ask, or debate (curl, no MCP) | `/litellm-council:setup` once (or set `LITELLM_*`) |
+| **litellm-council** | Cross-model council over your LiteLLM proxy — review a diff, ask, or debate (Node, no MCP) | `/litellm-council:setup` once (or set `LITELLM_*`) |
 
 The hooks, agent, and skill **auto-load on install** — no more editing
 `~/.claude/settings.json`. Paths inside the plugins resolve via
@@ -192,7 +192,7 @@ you confirm). If you set `CORP_GIT_JIRA_KEYS`, `setup` also enables a hard gate:
 A second pair of eyes from models outside the Claude/GPT lineage — routed through
 **your own** [LiteLLM](https://docs.litellm.ai) proxy, so one endpoint fronts whatever
 catalog you point it at (NVIDIA NIM, OpenAI, OpenRouter, …). No MCP server and no local
-process: the commands shell out with `curl` + `jq` via two small bundled scripts.
+process: the commands run through small bundled Node scripts (built-in `fetch`, no `curl`/`jq`).
 
 | Command | What it does |
 |---------|--------------|
@@ -200,6 +200,7 @@ process: the commands shell out with `curl` + `jq` via two small bundled scripts
 | `/litellm-council:ask` | Puts an arbitrary question to the council + synthesis |
 | `/litellm-council:debate` | Two rounds — each model answers, then sees the others' answers and revises/rebuts |
 | `/litellm-council:setup` | Saves your config once so you don't re-export it each session |
+| `/litellm-council:models` | Browse the proxy's live catalog (`GET /models`), filter, and re-pick the council |
 
 ### Config
 
@@ -215,8 +216,11 @@ them in the environment, which always overrides the file:
 
 If `LITELLM_COUNCIL_MODELS` is unset it defaults to a DeepSeek-R1 + Qwen-Coder pair
 (decorrelated lineages, free via the NIM tier). Any id your proxy exposes works, including
-`gpt-*`. Requires `curl` and `jq` on PATH. Self-check the model-list parser (no proxy
-needed): `bash plugins/litellm-council/scripts/test-council-models.sh`.
+`gpt-*` — and instead of typing ids you can browse the proxy's live catalog (`GET /models`),
+filter by keyword, and pick, during `/litellm-council:setup` or later via
+`/litellm-council:models`. Requires **Node ≥18** on PATH (for built-in `fetch`; the loadout
+already needs node for the hooks). Self-check the scripts (no proxy needed):
+`node plugins/litellm-council/scripts/test.mjs`.
 
 > **Privacy:** hosted council models (e.g. the NVIDIA NIM free tier) may use submitted
 > content to improve their models per their ToS — so this is for **non-proprietary / OSS
@@ -253,7 +257,11 @@ claude-loadout/                       (the marketplace repo)
       ├─ commands/ask.md              # /litellm-council:ask (any question)
       ├─ commands/debate.md           # /litellm-council:debate (two rounds, models see each other)
       ├─ commands/setup.md            # /litellm-council:setup (save LITELLM_* config)
-      ├─ scripts/ask-model.sh         # query one model (curl+jq, hardened) — shared
-      ├─ scripts/council-models.sh    # cleaned model list (config-sourced) — shared
-      └─ scripts/test-council-models.sh # no-dep self-check for the parser
+      ├─ commands/models.md           # /litellm-council:models (browse catalog, re-pick)
+      ├─ scripts/config.mjs           # env/file config (env-wins) + URL join — shared
+      ├─ scripts/ask-model.mjs        # query one model (fetch, hardened) — shared
+      ├─ scripts/council-models.mjs   # cleaned model list — shared
+      ├─ scripts/list-models.mjs      # fetch proxy catalog GET /models (+ filter) — shared
+      ├─ scripts/save-config.mjs      # write/merge the 0600 config file — shared
+      └─ scripts/test.mjs             # no-dep node self-check for all of the above
 ```
