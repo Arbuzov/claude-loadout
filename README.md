@@ -10,12 +10,14 @@ replace, tools like gitleaks (the secret scanner pairs a regex gate with a seman
 review subagent).
 
 Packaged as a **plugin marketplace** — so the loadout travels to any machine or
-project with two commands instead of hand-edited settings. Two plugins:
+project with two commands instead of hand-edited settings. Three plugins (the two
+git safety nets above, plus a cross-model review helper):
 
 | Plugin | What it gives you | Setup |
 |--------|-------------------|-------|
 | **secret-guard** | Pre-commit secret gate (hook) + semantic review subagent | none — works on install |
 | **corporate-gitlab** | fork→MR push guard (hook) + workflow skill + commit identity/sign-off/Jira gate | set `CORP_GIT_*` env, then `/corporate-gitlab:setup` once per machine |
+| **litellm-council** | Cross-model council over your LiteLLM proxy — review a diff, ask, or debate (curl, no MCP) | `/litellm-council:setup` once (or set `LITELLM_*`) |
 
 The hooks, agent, and skill **auto-load on install** — no more editing
 `~/.claude/settings.json`. Paths inside the plugins resolve via
@@ -31,6 +33,7 @@ From any project (the marketplace can be a git URL or a local clone):
 /plugin marketplace add https://github.com/Arbuzov/claude-loadout.git
 /plugin install secret-guard@claude-loadout
 /plugin install corporate-gitlab@claude-loadout       # corporate machines only
+/plugin install litellm-council@claude-loadout        # needs a LiteLLM proxy
 ```
 
 Then **restart Claude Code** (or `/hooks` to verify). Install scope: add
@@ -184,25 +187,73 @@ you confirm). If you set `CORP_GIT_JIRA_KEYS`, `setup` also enables a hard gate:
 
 ---
 
+## litellm-council — cross-model council
+
+A second pair of eyes from models outside the Claude/GPT lineage — routed through
+**your own** [LiteLLM](https://docs.litellm.ai) proxy, so one endpoint fronts whatever
+catalog you point it at (NVIDIA NIM, OpenAI, OpenRouter, …). No MCP server and no local
+process: the commands shell out with `curl` + `jq` via two small bundled scripts.
+
+| Command | What it does |
+|---------|--------------|
+| `/litellm-council:second-opinion` | Reviews the current diff across the council, reconciles with your own review |
+| `/litellm-council:ask` | Puts an arbitrary question to the council + synthesis |
+| `/litellm-council:debate` | Two rounds — each model answers, then sees the others' answers and revises/rebuts |
+| `/litellm-council:setup` | Saves your config once so you don't re-export it each session |
+
+### Config
+
+Run `/litellm-council:setup` once — it saves your values to `~/.config/litellm-council/env`
+(a `0600` file the commands source automatically; the key never lands in this repo). Or set
+them in the environment, which always overrides the file:
+
+| Variable | What | Example |
+|----------|------|---------|
+| `LITELLM_BASE_URL` | OpenAI-compatible base of your proxy | `https://litellm.example.com/v1` |
+| `LITELLM_API_KEY` | proxy master/virtual key (never printed) | `sk-…` |
+| `LITELLM_COUNCIL_MODELS` | *(optional)* comma-separated model ids | `openai/gpt-5.4,nvidia_nim/qwen/qwen2.5-coder-32b-instruct` |
+
+If `LITELLM_COUNCIL_MODELS` is unset it defaults to a DeepSeek-R1 + Qwen-Coder pair
+(decorrelated lineages, free via the NIM tier). Any id your proxy exposes works, including
+`gpt-*`. Requires `curl` and `jq` on PATH. Self-check the model-list parser (no proxy
+needed): `bash plugins/litellm-council/scripts/test-council-models.sh`.
+
+> **Privacy:** hosted council models (e.g. the NVIDIA NIM free tier) may use submitted
+> content to improve their models per their ToS — so this is for **non-proprietary / OSS
+> code only**. Review proprietary code through a subscription path (the Codex plugin) or a
+> self-hosted model. `second-opinion` gets your explicit confirmation before it sends the diff.
+
+---
+
 ## Layout
 
 ```
 claude-loadout/                       (the marketplace repo)
 ├─ .claude-plugin/
-│  └─ marketplace.json                # lists both plugins (source = ./plugins/<name>)
+│  └─ marketplace.json                # lists the plugins (source = ./plugins/<name>)
 └─ plugins/
    ├─ secret-guard/
    │  ├─ .claude-plugin/plugin.json
    │  ├─ hooks/hooks.json             # PreToolUse → secret-scan.mjs
    │  ├─ hooks/secret-scan.mjs        # scan engine (Node; --staged for native git hook)
+   │  ├─ hooks/test-secret-scan.mjs   # no-dep self-check for the scan engine
    │  └─ agents/secret-guard.md       # subagent: semantic review of staged changes
-   └─ corporate-gitlab/
+   ├─ corporate-gitlab/
+   │  ├─ .claude-plugin/plugin.json
+   │  ├─ hooks/hooks.json             # PreToolUse → fork-guard.mjs
+   │  ├─ hooks/fork-guard.mjs         # block push to upstream (fork→MR)
+   │  ├─ commands/setup.md            # /corporate-gitlab:setup
+   │  ├─ skills/corporate-gitlab/SKILL.md   # fork→MR + Jira workflow (self-limits)
+   │  ├─ git/corp-git-hooks/commit-msg # Signed-off-by + strip AI + Jira-key gate
+   │  ├─ setup.ps1                    # native-git wiring (Windows; reads CORP_GIT_*)
+   │  └─ setup.sh                     # native-git wiring (macOS/Linux/WSL; needs jq)
+   └─ litellm-council/
       ├─ .claude-plugin/plugin.json
-      ├─ hooks/hooks.json             # PreToolUse → fork-guard.mjs
-      ├─ hooks/fork-guard.mjs         # block push to upstream (fork→MR)
-      ├─ commands/setup.md            # /corporate-gitlab:setup
-      ├─ skills/corporate-gitlab/SKILL.md   # fork→MR + Jira workflow (self-limits)
-      ├─ git/corp-git-hooks/commit-msg # Signed-off-by + strip AI + Jira-key gate
-      ├─ setup.ps1                    # native-git wiring (Windows; reads CORP_GIT_*)
-      └─ setup.sh                     # native-git wiring (macOS/Linux/WSL; needs jq)
+      ├─ commands/second-opinion.md   # /litellm-council:second-opinion (review the diff)
+      ├─ commands/ask.md              # /litellm-council:ask (any question)
+      ├─ commands/debate.md           # /litellm-council:debate (two rounds, models see each other)
+      ├─ commands/setup.md            # /litellm-council:setup (save LITELLM_* config)
+      ├─ scripts/ask-model.sh         # query one model (curl+jq, hardened) — shared
+      ├─ scripts/council-models.sh    # cleaned model list (config-sourced) — shared
+      └─ scripts/test-council-models.sh # no-dep self-check for the parser
 ```

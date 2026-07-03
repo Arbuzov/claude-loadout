@@ -1,0 +1,7 @@
+{
+  "name": "litellm-council",
+  "version": "1.0.0",
+  "description": "Cross-model council via your self-hosted LiteLLM proxy (curl+jq, no MCP, no local process). Commands: /litellm-council:second-opinion (review the current diff), :ask (any question), :debate (two rounds where models see each other's answers), :setup (save config once). Nothing hardcoded - reads LITELLM_BASE_URL / LITELLM_API_KEY / LITELLM_COUNCIL_MODELS from the environment or the setup file.",
+  "author": { "name": "Serge Arbuzov" },
+  "keywords": ["litellm", "council", "code-review", "cross-model", "second-opinion"]
+}
