@@ -45,6 +45,11 @@ The `trap` cleans the temp dir on every exit path:
       echo
     done < "$DIR/models"
 
+**Self-heal on error:** if a model returns an error instead of an answer in either round (a
+4xx/5xx body, `410 Gone` / end-of-life, or a `(no response - ... timed out)` line), the council
+model has likely rotted. Run `/litellm-council:doctor` (re-probes with retries, then offers
+healthy replacements and asks which to swap in) before trusting the debate outcome.
+
 ## 3. Present and synthesize
 - Show round 1 and round 2 grouped as above.
 - Then synthesize: **consensus shifts** (who changed position and why), **surviving

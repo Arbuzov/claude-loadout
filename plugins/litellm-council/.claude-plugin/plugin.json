@@ -1,7 +1,7 @@
 {
   "name": "litellm-council",
-  "version": "1.2.0",
-  "description": "Cross-model council via your self-hosted LiteLLM proxy (Node, no MCP, no local process). Commands: /litellm-council:second-opinion (review the current diff), :ask (any question), :debate (two rounds where models see each other's answers), :setup (save config once), :models (browse the proxy's live catalog and re-pick the council). Nothing hardcoded - reads LITELLM_BASE_URL / LITELLM_API_KEY / LITELLM_COUNCIL_MODELS from the environment or the setup file.",
+  "version": "1.3.0",
+  "description": "Cross-model council via your self-hosted LiteLLM proxy (Node, no MCP, no local process). Commands: /litellm-council:second-opinion (review the current diff), :ask (any question), :debate (two rounds where models see each other's answers), :doctor (health-check the council with retries and swap out a dead/EOL model), :setup (save config once), :models (browse the proxy's live catalog and re-pick the council). Nothing hardcoded - reads LITELLM_BASE_URL / LITELLM_API_KEY / LITELLM_COUNCIL_MODELS from the environment or the setup file.",
   "author": { "name": "Serge Arbuzov" },
   "keywords": ["litellm", "council", "code-review", "cross-model", "second-opinion"]
 }

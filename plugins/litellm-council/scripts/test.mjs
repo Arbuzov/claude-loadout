@@ -8,6 +8,7 @@ import { councilModels } from './council-models.mjs';
 import { parseModels, filterModels } from './list-models.mjs';
 import { maxTokensFor, extractReply } from './ask-model.mjs';
 import { mergeConfig, serialize } from './save-config.mjs';
+import { classify } from './doctor.mjs';
 
 let n = 0;
 const eq = (name, a, b) => { assert.deepEqual(a, b, name); n++; };
@@ -63,6 +64,19 @@ eq('extractReply detail', extractReply({ detail: 'rate limited' }), 'rate limite
 eq('extractReply nothing -> null', extractReply({}), null);
 eq('extractReply non-string error object -> JSON.stringify',
   extractReply({ error: { code: 'invalid_request', type: 'x' } }), JSON.stringify({ code: 'invalid_request', type: 'x' }));
+
+// --- doctor.classify --- one good attempt wins; kind of the failures decides DEAD vs UNREACHABLE
+eq('classify: a success is OK', classify([{ ok: true, ms: 500 }], { slowMs: 15000 }).state, 'OK');
+eq('classify: slow success is SLOW', classify([{ ok: true, ms: 20000 }], { slowMs: 15000 }).state, 'SLOW');
+eq('classify: fastest good attempt sets latency',
+  classify([{ ok: false, kind: 'timeout' }, { ok: true, ms: 800 }], { slowMs: 15000 }), { state: 'OK', best: 800 });
+eq('classify: an http rejection (404/410/500) is DEAD',
+  classify([{ ok: false, kind: 'timeout' }, { ok: false, kind: 'http' }], { slowMs: 15000 }).state, 'DEAD');
+eq('classify: a 2xx {error} body is DEAD too', classify([{ ok: false, kind: 'errorbody' }], { slowMs: 15000 }).state, 'DEAD');
+eq('classify: an empty/malformed 2xx is UNREACHABLE, not DEAD (no false replace on a blip)',
+  classify([{ ok: false, kind: 'empty' }], { slowMs: 15000 }).state, 'UNREACHABLE');
+eq('classify: only timeouts/network -> UNREACHABLE (maybe transient, not condemned as gone)',
+  classify([{ ok: false, kind: 'timeout' }, { ok: false, kind: 'network' }], { slowMs: 15000 }).state, 'UNREACHABLE');
 
 // --- save-config ---
 eq('mergeConfig env overrides, preserves the rest',

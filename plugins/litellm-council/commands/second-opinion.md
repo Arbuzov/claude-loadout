@@ -81,6 +81,12 @@ failing never aborts the council. The model list comes from `council-models.mjs`
 Reasoning models like DeepSeek-R1 can be slow; if one keeps hitting `ask-model.mjs`'s 300s
 timeout, drop it and keep a fast coder model (e.g. qwen-coder) for the review.
 
+**Self-heal on error:** if a model returns an error instead of a review (a 4xx/5xx body,
+`410 Gone` / end-of-life, or a `(no response - ... timed out)` line), the council model has
+likely rotted — a hosted id can reach end-of-life or get pulled. Run `/litellm-council:doctor`
+(re-probes with retries, then offers healthy replacements and asks which to swap in) before
+relying on the merged verdict.
+
 ## 4. Present and synthesize
 - Show each model's findings under its own id.
 - Then synthesize: where the models AGREE (higher-confidence issues), where they DISAGREE,

@@ -20,8 +20,8 @@
     {
       "name": "litellm-council",
       "source": "./plugins/litellm-council",
-      "description": "Cross-model council via your self-hosted LiteLLM proxy (Node-based, no MCP). Run /litellm-council:setup once (or set LITELLM_BASE_URL / LITELLM_API_KEY / LITELLM_COUNCIL_MODELS), then :second-opinion (review the current diff), :ask (any question), :debate (two rounds where models see each other's answers), or :models (browse the proxy's live catalog and re-pick the council).",
-      "version": "1.2.0",
+      "description": "Cross-model council via your self-hosted LiteLLM proxy (Node-based, no MCP). Run /litellm-council:setup once (or set LITELLM_BASE_URL / LITELLM_API_KEY / LITELLM_COUNCIL_MODELS), then :second-opinion (review the current diff), :ask (any question), :debate (two rounds where models see each other's answers), :doctor (health-check the council and self-heal a dead/EOL model), or :models (browse the proxy's live catalog and re-pick the council).",
+      "version": "1.3.0",
       "author": { "name": "Serge Arbuzov" }
     }
   ]

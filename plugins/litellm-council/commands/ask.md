@@ -37,6 +37,11 @@ A model that errors prints its error and the loop continues. The preflight `conf
 early (naming the missing variable) if the proxy isn't configured - then run
 `/litellm-council:setup`.
 
+**Self-heal on error:** if a model's reply looks like an error (a 4xx/5xx body, `410 Gone` /
+end-of-life, or a `(no response - ... timed out)` line) rather than an answer, don't just drop
+it — the council model has likely rotted. Run `/litellm-council:doctor` (probes with retries,
+then offers healthy replacements and asks which to swap in) before trusting the synthesis.
+
 ## 4. Present and synthesize
 - Show each model's answer under its own id.
 - Then synthesize: where they AGREE, where they DISAGREE and why, any unique insight, and a
