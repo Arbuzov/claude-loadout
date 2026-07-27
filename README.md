@@ -16,6 +16,7 @@ gate above, plus a cross-model review helper):
 |--------|-------------------|-------|
 | **secret-guard** | Pre-commit secret gate (hook) + semantic review subagent | none — works on install |
 | **litellm-council** | Cross-model council over your LiteLLM proxy — review a diff, ask, or debate (Node, no MCP) | `/litellm-council:setup` once (or set `LITELLM_*`) |
+| **nvidia-council** | The same council straight against NVIDIA's NIM endpoint — no proxy to keep running | `/nvidia-council:setup` once (needs a free `NVIDIA_API_KEY`) |
 
 The hook, agent, and commands **auto-load on install** — no more editing
 `~/.claude/settings.json`. Paths inside the plugins resolve via
@@ -31,6 +32,7 @@ From any project (the marketplace can be a git URL or a local clone):
 /plugin marketplace add https://github.com/Arbuzov/claude-loadout.git
 /plugin install secret-guard@claude-loadout
 /plugin install litellm-council@claude-loadout        # needs a LiteLLM proxy
+/plugin install nvidia-council@claude-loadout         # needs a free NVIDIA_API_KEY, no proxy
 ```
 
 Then **restart Claude Code** (or `/hooks` to verify). Install scope: add
@@ -118,9 +120,9 @@ them in the environment, which always overrides the file:
 |----------|------|---------|
 | `LITELLM_BASE_URL` | OpenAI-compatible base of your proxy | `https://litellm.example.com/v1` |
 | `LITELLM_API_KEY` | proxy master/virtual key (never printed) | `sk-…` |
-| `LITELLM_COUNCIL_MODELS` | *(optional)* comma-separated model ids | `openai/gpt-5.4,nvidia_nim/qwen/qwen2.5-coder-32b-instruct` |
+| `LITELLM_COUNCIL_MODELS` | *(optional)* comma-separated model ids | `openai/gpt-5.4,deepseek-ai/deepseek-v4-pro` |
 
-If `LITELLM_COUNCIL_MODELS` is unset it defaults to a DeepSeek-R1 + Qwen-Coder pair
+If `LITELLM_COUNCIL_MODELS` is unset it defaults to a DeepSeek + GLM pair
 (decorrelated lineages, free via the NIM tier). Any id your proxy exposes works, including
 `gpt-*` — and instead of typing ids you can browse the proxy's live catalog (`GET /models`),
 filter by keyword, and pick, during `/litellm-council:setup` or later via
@@ -132,6 +134,49 @@ already needs node for the hooks). Self-check the scripts (no proxy needed):
 > content to improve their models per their ToS — so this is for **non-proprietary / OSS
 > code only**. Review proprietary code through a subscription path (the Codex plugin) or a
 > self-hosted model. `second-opinion` gets your explicit confirmation before it sends the diff.
+
+---
+
+## nvidia-council — the same council, no proxy
+
+The same idea with the middleman removed: straight to **NVIDIA's hosted NIM endpoint**
+(`https://integrate.api.nvidia.com/v1`, OpenAI-compatible, free `nvapi-` key from
+[build.nvidia.com](https://build.nvidia.com)). Fewer moving parts, and it still works when
+your proxy is down. Same commands minus `debate`, one Node file, no dependencies.
+
+Use `litellm-council` when you want one endpoint fronting several vendors with fallbacks;
+use `nvidia-council` when NVIDIA's catalog is all you need and you'd rather not run a proxy.
+
+| Command | What it does |
+|---------|--------------|
+| `/nvidia-council:second-opinion` | Reviews the current diff across the council, reconciles with your own review |
+| `/nvidia-council:ask` | Puts an arbitrary question to the council + synthesis |
+| `/nvidia-council:doctor` | Probes each model (retries first), then offers healthy replacements for a dead/EOL id |
+| `/nvidia-council:setup` | Saves your config once so you don't re-export it each session |
+| `/nvidia-council:models` | Browse NVIDIA's live catalog (`GET /models`), filter, and re-pick the council |
+
+### Config
+
+Export `NVIDIA_API_KEY` **before launching Claude Code** (env vars are inherited at process
+start), then run `/nvidia-council:setup` once — it saves to `~/.config/nvidia-council/env`
+(`0600`, never in this repo). There is no base URL to configure.
+
+| Variable | What | Example |
+|----------|------|---------|
+| `NVIDIA_API_KEY` | free key from build.nvidia.com (never printed) | `nvapi-…` |
+| `NVIDIA_COUNCIL_MODELS` | *(optional)* comma-separated bare NIM ids | `deepseek-ai/deepseek-v4-pro,z-ai/glm-5.2` |
+| `NVIDIA_BASE_URL` | *(optional)* only for self-hosted NIM containers | `http://nim.local:8000/v1` |
+
+Model ids carry **no `nvidia_nim/` prefix** — that prefix is a LiteLLM routing artifact.
+NVIDIA's free tier rate-limits **~40 requests/min per key, account-wide**, so the fan-out
+staggers its request starts and retries a `429` honouring `Retry-After` instead of dropping
+a model. Requires **Node ≥18**. Self-check (no key needed):
+`node plugins/nvidia-council/scripts/test.mjs`.
+
+> **Privacy:** the same ToS caveat applies, and more directly — NVIDIA's API Trial terms
+> permit using submitted content to improve their models and explicitly forbid uploading
+> confidential data. **Non-proprietary / OSS code only**, unless you point `NVIDIA_BASE_URL`
+> at your own NIM containers.
 
 ---
 
@@ -148,17 +193,26 @@ claude-loadout/                       (the marketplace repo)
    │  ├─ hooks/secret-scan.mjs        # scan engine (Node; --staged for native git hook)
    │  ├─ hooks/test-secret-scan.mjs   # no-dep self-check for the scan engine
    │  └─ agents/secret-guard.md       # subagent: semantic review of staged changes
-   └─ litellm-council/
+   ├─ litellm-council/
+   │  ├─ .claude-plugin/plugin.json
+   │  ├─ commands/second-opinion.md   # /litellm-council:second-opinion (review the diff)
+   │  ├─ commands/ask.md              # /litellm-council:ask (any question)
+   │  ├─ commands/debate.md           # /litellm-council:debate (two rounds, models see each other)
+   │  ├─ commands/setup.md            # /litellm-council:setup (save LITELLM_* config)
+   │  ├─ commands/models.md           # /litellm-council:models (browse catalog, re-pick)
+   │  ├─ scripts/config.mjs           # env/file config (env-wins) + URL join — shared
+   │  ├─ scripts/ask-model.mjs        # query one model (fetch, hardened) — shared
+   │  ├─ scripts/council-models.mjs   # cleaned model list — shared
+   │  ├─ scripts/list-models.mjs      # fetch proxy catalog GET /models (+ filter) — shared
+   │  ├─ scripts/save-config.mjs      # write/merge the 0600 config file — shared
+   │  └─ scripts/test.mjs             # no-dep node self-check for all of the above
+   └─ nvidia-council/
       ├─ .claude-plugin/plugin.json
-      ├─ commands/second-opinion.md   # /litellm-council:second-opinion (review the diff)
-      ├─ commands/ask.md              # /litellm-council:ask (any question)
-      ├─ commands/debate.md           # /litellm-council:debate (two rounds, models see each other)
-      ├─ commands/setup.md            # /litellm-council:setup (save LITELLM_* config)
-      ├─ commands/models.md           # /litellm-council:models (browse catalog, re-pick)
-      ├─ scripts/config.mjs           # env/file config (env-wins) + URL join — shared
-      ├─ scripts/ask-model.mjs        # query one model (fetch, hardened) — shared
-      ├─ scripts/council-models.mjs   # cleaned model list — shared
-      ├─ scripts/list-models.mjs      # fetch proxy catalog GET /models (+ filter) — shared
-      ├─ scripts/save-config.mjs      # write/merge the 0600 config file — shared
-      └─ scripts/test.mjs             # no-dep node self-check for all of the above
+      ├─ commands/second-opinion.md   # /nvidia-council:second-opinion (review the diff)
+      ├─ commands/ask.md              # /nvidia-council:ask (any question)
+      ├─ commands/doctor.md           # /nvidia-council:doctor (probe + swap a dead model)
+      ├─ commands/setup.md            # /nvidia-council:setup (save NVIDIA_* config)
+      ├─ commands/models.md           # /nvidia-council:models (browse catalog, re-pick)
+      ├─ scripts/nim.mjs              # the whole client: config, catalog, chat, doctor
+      └─ scripts/test.mjs             # no-dep node self-check (no key needed)
 ```

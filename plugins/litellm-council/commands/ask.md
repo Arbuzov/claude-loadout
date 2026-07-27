@@ -23,9 +23,9 @@ model's config, request-building, and error-handling live in `ask-model.mjs`; th
 
     ROOT="${CLAUDE_PLUGIN_ROOT}"
     node "$ROOT/scripts/config.mjs" >/dev/null || { echo "not configured - run /litellm-council:setup"; exit 1; }
-    Q="$(cat <<'EOF'
+    Q="$(cat <<'LLQ_END'
     <paste the user's question here, verbatim>
-    EOF
+    LLQ_END
     )"
     node "$ROOT/scripts/council-models.mjs" | while read -r M; do
       echo "### $M"
@@ -33,14 +33,24 @@ model's config, request-building, and error-handling live in `ask-model.mjs`; th
       echo
     done
 
+**Check the delimiter first:** if any line of the question is exactly `LLQ_END`, the here-doc
+ends there and the rest is parsed as shell - pick a delimiter that does not appear in the text.
+
 A model that errors prints its error and the loop continues. The preflight `config.mjs` stops
 early (naming the missing variable) if the proxy isn't configured - then run
 `/litellm-council:setup`.
 
-**Self-heal on error:** if a model's reply looks like an error (a 4xx/5xx body, `410 Gone` /
-end-of-life, or a `(no response - ... timed out)` line) rather than an answer, don't just drop
-it — the council model has likely rotted. Run `/litellm-council:doctor` (probes with retries,
-then offers healthy replacements and asks which to swap in) before trusting the synthesis.
+**Read the error before reacting** - only one of these is the model's fault:
+
+| In the reply | Meaning | Do |
+|---|---|---|
+| `404` / `410 Gone` | the id rotted (NIM end-of-life, renamed, pulled) | `/litellm-council:doctor` to pick a replacement |
+| `401` / `403` | the proxy rejected the key | fix `LITELLM_API_KEY` - the models are fine |
+| `429` | rate limited upstream | wait, re-run |
+| `5xx` | the proxy or the provider behind it is faulting | retry later; check the proxy is up |
+| `(no response - ... timed out)` | too slow for the 300s budget | drop it for a faster model |
+
+Do not send the user replacing models for anything but the first row.
 
 ## 4. Present and synthesize
 - Show each model's answer under its own id.

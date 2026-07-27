@@ -18,7 +18,8 @@ Config comes from the environment or from `/litellm-council:setup` (saved to
 - `LITELLM_API_KEY` - the proxy master/virtual key. Never print or echo it.
 - `LITELLM_COUNCIL_MODELS` (optional) - comma-separated model ids. Any id your proxy
   exposes works (NIM, OpenAI `gpt-*`, ...). Default when unset:
-  `nvidia_nim/deepseek-ai/deepseek-r1,nvidia_nim/qwen/qwen2.5-coder-32b-instruct`.
+  `deepseek-ai/deepseek-v4-pro,z-ai/glm-5.2`. Model ids rot - if the council errors, run
+  `/litellm-council:doctor`.
 
 The block fails fast and names any required value still missing - relay that, do not guess.
 `config.mjs` prints a non-secret summary (it never echoes the key):
@@ -42,7 +43,7 @@ confirmation** that this diff may go to hosted models - do not infer consent fro
       [ -n "$CAND" ] && git rev-parse --verify --quiet "${CAND}^{commit}" >/dev/null 2>&1 && { BASE="$CAND"; break; }
     done
     S=""
-    [ -n "$BASE" ] && S="$(git diff --stat "$BASE...HEAD" 2>/dev/null)"
+    [ -n "$BASE" ] && MB="$(git merge-base "$BASE" HEAD 2>/dev/null)" && S="$(git diff --stat "$MB" 2>/dev/null)"
     [ -n "$S" ] || S="$(git diff --stat --staged 2>/dev/null)"
     [ -n "$S" ] || S="$(git diff --stat 2>/dev/null)"
     [ -n "$S" ] && printf '%s\n' "$S"
@@ -50,8 +51,10 @@ confirmation** that this diff may go to hosted models - do not infer consent fro
 Only continue to step 3 after the user has clearly approved.
 
 ## 3. Capture the diff and query each model (one block)
-Prefer the branch diff (against origin's default branch, resolved and **verified to exist**
-at runtime - no hardcoded, unverified `main`), fall back to staged, then the working tree. The
+Diff from the **merge-base** with origin's default branch (resolved and **verified to exist** at
+runtime - no hardcoded, unverified `main`) to the working tree, so committed, staged AND
+uncommitted changes are all reviewed; `BASE...HEAD` would silently skip your uncommitted work.
+Falls back to staged, then the working tree, when there is no such base. The
 diff goes to a temp file (escaped safely, never interpolated); the `trap` removes it on every
 exit path. Each model is queried through `ask-model.mjs`, which builds the request, bumps
 `max_tokens` for slow reasoning models, and prints the reply or a bounded error - so one model
@@ -63,7 +66,7 @@ failing never aborts the council. The model list comes from `council-models.mjs`
     for CAND in "$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)" origin/main origin/master; do
       [ -n "$CAND" ] && git rev-parse --verify --quiet "${CAND}^{commit}" >/dev/null 2>&1 && { BASE="$CAND"; break; }
     done
-    [ -n "$BASE" ] && git diff "$BASE...HEAD" > "$DIFF" 2>/dev/null
+    [ -n "$BASE" ] && MB="$(git merge-base "$BASE" HEAD 2>/dev/null)" && git diff "$MB" > "$DIFF" 2>/dev/null
     [ -s "$DIFF" ] || git diff --staged > "$DIFF"
     [ -s "$DIFF" ] || git diff > "$DIFF"
     [ -s "$DIFF" ] || { echo "Nothing to review (clean tree)"; exit 0; }
@@ -81,11 +84,12 @@ failing never aborts the council. The model list comes from `council-models.mjs`
 Reasoning models like DeepSeek-R1 can be slow; if one keeps hitting `ask-model.mjs`'s 300s
 timeout, drop it and keep a fast coder model (e.g. qwen-coder) for the review.
 
-**Self-heal on error:** if a model returns an error instead of a review (a 4xx/5xx body,
-`410 Gone` / end-of-life, or a `(no response - ... timed out)` line), the council model has
-likely rotted — a hosted id can reach end-of-life or get pulled. Run `/litellm-council:doctor`
-(re-probes with retries, then offers healthy replacements and asks which to swap in) before
-relying on the merged verdict.
+**Read the error before reacting.** Only `404`/`410 Gone` means the model id rotted — that is the
+case for `/litellm-council:doctor` and a replacement. `401`/`403` means the proxy rejected the key
+(fix `LITELLM_API_KEY`; the models are fine), `429` means you are rate limited upstream (wait),
+`5xx` means the proxy or the provider behind it is faulting (check the proxy is up), and
+`(no response - ... timed out)` means that model is too slow for the budget. Do not go replacing
+council models for any of those — they fail every model at once, which is the tell.
 
 ## 4. Present and synthesize
 - Show each model's findings under its own id.

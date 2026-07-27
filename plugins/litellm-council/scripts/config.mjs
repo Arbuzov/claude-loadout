@@ -11,8 +11,13 @@ import { pathToFileURL } from 'node:url';
 export const CONFIG_PATH =
   process.env.LITELLM_COUNCIL_ENV || join(homedir(), '.config', 'litellm-council', 'env');
 
-export const DEFAULT_MODELS =
-  'nvidia_nim/deepseek-ai/deepseek-r1,nvidia_nim/qwen/qwen2.5-coder-32b-instruct';
+// Two decorrelated lineages, verified routable and answering. NIM ids rot fast - the previous
+// default (nvidia_nim/deepseek-ai/deepseek-r1 + nvidia_nim/qwen/qwen2.5-coder-32b-instruct) had
+// gone 404 and 410 Gone, so a fresh install started with a council of two dead models. Whatever
+// is here has a shelf life: :doctor detects the rot and :models re-picks from the live catalog.
+// The right ids depend on YOUR proxy's routing (a `nvidia_nim/*` wildcard wants the prefix; a
+// catalog synced into the DB usually wants the bare name) - this pair assumes the latter.
+export const DEFAULT_MODELS = 'deepseek-ai/deepseek-v4-pro,z-ai/glm-5.2';
 
 // Parse a config file into { KEY: value }. Tolerant of plain dotenv (KEY=value, KEY="value")
 // and the older shell form (export KEY="${KEY:-value}") so an existing file keeps working.
@@ -55,6 +60,16 @@ export function loadConfig(env = process.env, file = fileConfig()) {
 // Join base + path with exactly one slash, so a trailing slash on the base never doubles up.
 export function joinUrl(base, path) {
   return `${String(base).replace(/\/+$/, '')}/${String(path).replace(/^\/+/, '')}`;
+}
+
+// Strip the key out of anything about to be printed. Proxies and providers really do echo the
+// rejected credential back in an auth error (LiteLLM masks it; not everything does), and this
+// plugin's stderr routinely ends up in a terminal, a log, and an agent's context. split/join
+// rather than a regex so no escaping of the secret is needed. Short values are left alone -
+// a 2-char "secret" would redact half the message.
+export function redact(text, secret) {
+  const s = String(text ?? '');
+  return secret && String(secret).length >= 8 ? s.split(String(secret)).join('[redacted]') : s;
 }
 
 export function die(msg, code = 1) {

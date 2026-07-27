@@ -33,7 +33,7 @@ will not be visible here.
   `https://litellm.example.com/v1`)". Not secret - fine to collect and inline. Never invent one.
   If `~/.config/litellm-council/env` already has one, offer it as the default.
 - **Models** - one **AskUserQuestion**: "Which council models?" Options: "Default NIM pair
-  (Recommended) - DeepSeek-R1 + Qwen-Coder, free via NIM" / "Browse my proxy's catalog" /
+  (Recommended) - DeepSeek + GLM, free via NIM" / "Browse my proxy's catalog" /
   "Custom list".
     - **Browse** - list what the proxy actually exposes. The config isn't saved yet, so the
       script needs the base URL; the key is already inherited from the environment (never
@@ -46,7 +46,8 @@ will not be visible here.
       user pick (numbers or ids); aim for a small lineage-diverse set. Join the picks into a
       comma-separated `MODELS`.
     - **Custom** - ask in plain text for a comma-separated list (any ids your proxy exposes,
-      e.g. `openai/gpt-5.4,nvidia_nim/qwen/qwen2.5-coder-32b-instruct`).
+      e.g. `openai/gpt-5.4,deepseek-ai/deepseek-v4-pro`). Take ids from the catalog listing
+      rather than from memory - hosted ids get retired and renamed.
 
 If Base URL is still blank, stop and say so - do not guess.
 
@@ -54,7 +55,7 @@ If Base URL is still blank, stop and say so - do not guess.
 `save-config.mjs` reads values from its **environment** and merges over any existing file
 (0600, with a `.bak` backup). The key is already inherited - never inline it. For "Default NIM
 pair", set
-`LITELLM_COUNCIL_MODELS=nvidia_nim/deepseek-ai/deepseek-r1,nvidia_nim/qwen/qwen2.5-coder-32b-instruct`:
+`LITELLM_COUNCIL_MODELS=deepseek-ai/deepseek-v4-pro,z-ai/glm-5.2`:
 
     ROOT="${CLAUDE_PLUGIN_ROOT}"
     LITELLM_BASE_URL="<url>" LITELLM_COUNCIL_MODELS="<models>" node "$ROOT/scripts/save-config.mjs"

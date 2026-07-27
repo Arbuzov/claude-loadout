@@ -12,14 +12,21 @@ note as `ask`: this goes to hosted models, keep it **non-proprietary**.
 
 ## 2. Run both rounds (one block)
 Round-1 answers are captured per model in a temp dir, concatenated, and fed back in round 2.
-The `trap` cleans the temp dir on every exit path:
+The `trap` cleans the temp dir on every exit path.
+
+**Check the here-doc delimiter before you run this:** if any line of the question is exactly
+`LLQ_END`, the here-doc ends there and the rest is parsed as shell - pick a delimiter that does
+not appear in the text.
+
+Everything below is **one** shell invocation - `ROOT`, `DIR`, the `trap`, `Q` and `$DIR/models`
+do not survive being split into separate calls:
 
     ROOT="${CLAUDE_PLUGIN_ROOT}"
     node "$ROOT/scripts/config.mjs" >/dev/null || { echo "not configured - run /litellm-council:setup"; exit 1; }
     DIR="$(mktemp -d)"; trap 'rm -rf "$DIR"' EXIT
-    Q="$(cat <<'EOF'
+    Q="$(cat <<'LLQ_END'
     <paste the user's question here, verbatim>
-    EOF
+    LLQ_END
     )"
     node "$ROOT/scripts/council-models.mjs" > "$DIR/models"
 
@@ -45,10 +52,15 @@ The `trap` cleans the temp dir on every exit path:
       echo
     done < "$DIR/models"
 
-**Self-heal on error:** if a model returns an error instead of an answer in either round (a
-4xx/5xx body, `410 Gone` / end-of-life, or a `(no response - ... timed out)` line), the council
-model has likely rotted. Run `/litellm-council:doctor` (re-probes with retries, then offers
-healthy replacements and asks which to swap in) before trusting the debate outcome.
+**Read the error before reacting.** Only `404`/`410 Gone` means the model id rotted — run
+`/litellm-council:doctor` to pick a replacement. `401`/`403` means the proxy rejected the key,
+`429` means rate limited, `5xx` means the proxy or provider is faulting, and
+`(no response - ... timed out)` means that model is too slow. If only one model fails, treat that one
+model as unusable for this run; if they ALL fail the same way, the cause is the key, the rate
+limit or the proxy — fix that rather than replacing a healthy council.
+
+A model missing from round 2 makes the debate weaker but not wrong: say which models actually
+took part rather than presenting a two-model exchange as the full council's.
 
 ## 3. Present and synthesize
 - Show round 1 and round 2 grouped as above.

@@ -1,5 +1,5 @@
 ---
-description: Health-check the council models on your LiteLLM proxy and self-heal a dead one. Probes each configured model with retries (a NIM id can hit end-of-life / 410 Gone, get pulled / 404, or turn too slow to use), and when one is DEAD or UNREACHABLE it offers healthy replacements from the live catalog, asks which to swap in, and saves the new council. Reads LITELLM_BASE_URL / LITELLM_API_KEY / LITELLM_COUNCIL_MODELS. Node, no MCP.
+description: Health-check the council models on your LiteLLM proxy and self-heal a dead one. Probes each configured model with retries (a NIM id can hit end-of-life / 410 Gone, get pulled / 404, or turn too slow to use), and when one is genuinely DEAD (404/410) it offers healthy replacements from the live catalog, asks which to swap in, and saves the new council - while a rejected key, a rate limit or a proxy 5xx is reported as such instead of condemning the models. Reads LITELLM_BASE_URL / LITELLM_API_KEY / LITELLM_COUNCIL_MODELS. Node, no MCP.
 ---
 
 Diagnose why the council "times out and glitches" and fix it. The usual cause is a rotted model
@@ -22,7 +22,14 @@ is DEAD/UNREACHABLE.
 
 If every model is `OK` (or an acceptable `SLOW`), report that and **stop** — nothing to heal.
 
-## 2. Only if a model is DEAD or UNREACHABLE — find replacements
+Read the states literally. `DEAD` means the proxy rejected the **model** (404/410, or a 2xx
+`{error}` body) — that one is safe to replace. `UNREACHABLE` means *unproven*, not gone: a
+timeout, a wire error, an empty 2xx, a rejected key, a rate limit, or a proxy 5xx. When the
+**whole council** goes `UNREACHABLE` at once the cause is almost never N dead models — it is one
+key, one rate limit, or one down proxy, and `doctor.mjs` prints a line naming which. Fix that and
+re-run before replacing anything.
+
+## 2. Only if a model is DEAD (or repeatably UNREACHABLE on its own) — find replacements
 For each bad model, pull healthy candidates from the live catalog and probe the shortlist so you
 only ever offer the user models that actually answer. Filter the catalog to the dead model's
 family first, then add a couple of cross-family flagships; probe them all in one shot. Replace

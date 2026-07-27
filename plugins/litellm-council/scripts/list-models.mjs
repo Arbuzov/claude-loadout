@@ -2,13 +2,21 @@
 // List the model ids the proxy exposes (GET {LITELLM_BASE_URL}/models), one per line, sorted
 // and de-duplicated. Optional arg is a case-insensitive literal substring filter.
 //   Usage: node list-models.mjs [filter]
-import { requireConfig, joinUrl, die } from './config.mjs';
+import { requireConfig, joinUrl, die, redact } from './config.mjs';
 import { pathToFileURL } from 'node:url';
 
 // Extract ids from the OpenAI-compatible {"data":[{"id":...}]} shape; throw on any other shape.
 export function parseModels(json) {
   if (!json || !Array.isArray(json.data)) throw new Error('no data array');
   return json.data.map((m) => m && m.id).filter((x) => typeof x === 'string' && x !== '');
+}
+
+// Say which KIND of failure it was, so a key problem doesn't read as a broken catalog.
+export function statusHint(status) {
+  if (status === 401 || status === 403) return ' (fix LITELLM_API_KEY)';
+  if (status === 429) return ' (rate limited - wait and re-run)';
+  if (status >= 500) return ' (the proxy or provider is faulting - check the proxy is up)';
+  return '';
 }
 
 export function filterModels(ids, filter) {
@@ -25,11 +33,15 @@ export async function fetchModelIds({ baseUrl, apiKey, timeoutMs = 30000 }) {
   const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(timeoutMs) });
   const raw = await res.text();
   try {
+    if (!res.ok) throw new Error('http');
     return parseModels(JSON.parse(raw));
   } catch {
-    const e = new Error('unreadable model list');
+    // carry the STATUS through: a 401 here is a key problem and a 5xx is a proxy problem, and
+    // flattening both into "unreadable model list" hides which one it is
+    const e = new Error(res.ok ? 'unreadable model list' : 'the proxy rejected the request');
     e.raw = raw;
     e.url = url;
+    e.status = res.ok ? undefined : res.status;
     throw e;
   }
 }
@@ -42,10 +54,11 @@ async function main() {
     ids = await fetchModelIds(cfg);
   } catch (e) {
     if (e.raw !== undefined) {
-      process.stderr.write(`could not read a model list from ${e.url}\n${String(e.raw).slice(0, 300)}\n`);
+      const status = e.status ? `HTTP ${e.status} - ` : '';
+      process.stderr.write(`could not read a model list from ${e.url}: ${status}${e.message}${statusHint(e.status)}\n${redact(String(e.raw).slice(0, 300), cfg.apiKey)}\n`);
       process.exit(1);
     }
-    die(`could not reach the proxy: ${e.code || e.cause?.code || e.name || e.message}`);
+    die(`could not reach the proxy: ${e.cause?.code || e.name || e.message}`);
   }
   if (ids.length === 0) {
     // an empty catalog is NOT an error - the proxy may expose models only behind a wildcard the
