@@ -10,3 +10,4 @@ jobs:
       - run: node plugins/secret-guard/hooks/test-secret-scan.mjs
       - run: node plugins/litellm-council/scripts/test.mjs
       - run: node plugins/nvidia-council/scripts/test.mjs
+      - run: node plugins/telegram-notify/scripts/test.mjs

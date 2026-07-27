@@ -1,0 +1,7 @@
+{
+  "name": "telegram-notify",
+  "version": "1.0.0",
+  "description": "Send notifications to Telegram from Claude Code - one bot, named targets, any scenario. Commands: /telegram-notify:setup (friendly one-time wizard: create the bot, then DISCOVER your chat id instead of hunting for it), :send (notify a target), :targets (add/list/remove named routes), :doctor (check the token and every target without spamming them). Named targets route different scenarios to different chats or forum topics: `tg.mjs send --to alerts --level error`. Node, zero deps, no MCP - so hooks and scripts can call it directly. Reads TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID / TELEGRAM_TARGETS from the environment or a 0600 config file.",
+  "author": { "name": "Serge Arbuzov" },
+  "keywords": ["telegram", "notifications", "bot", "alerts", "hooks", "webhook"]
+}

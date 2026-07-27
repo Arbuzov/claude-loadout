@@ -23,6 +23,13 @@
       "description": "Cross-model council straight against NVIDIA's hosted NIM endpoint - no proxy in the path, so it works when your LiteLLM is down. Export NVIDIA_API_KEY (free nvapi- key from build.nvidia.com), run /nvidia-council:setup once, then :second-opinion (review the current diff), :ask (any question), :doctor (health-check the council and swap out a dead/EOL model), or :models (browse the live NVIDIA catalog and re-pick the council). Rate-limit aware for the free tier's ~40 req/min per key.",
       "version": "1.0.0",
       "author": { "name": "Serge Arbuzov" }
+    },
+    {
+      "name": "telegram-notify",
+      "source": "./plugins/telegram-notify",
+      "description": "Outbound Telegram notifications for any scenario. Run /telegram-notify:setup once - it walks you through @BotFather and then DISCOVERS your chat id from the bot's update stream instead of making you hunt for a 13-digit number. Then :send (notify a target, text or piped stdin), :targets (named routes, so `--to alerts` and `--to builds` land in different chats or forum topics), :doctor (verify the token and every target without spamming them). Node, zero deps, no MCP, so hooks and scripts can call it directly.",
+      "version": "1.0.0",
+      "author": { "name": "Serge Arbuzov" }
     }
   ]
 }
