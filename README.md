@@ -126,8 +126,9 @@ If `LITELLM_COUNCIL_MODELS` is unset it defaults to a DeepSeek + GLM pair
 (decorrelated lineages, free via the NIM tier). Any id your proxy exposes works, including
 `gpt-*` — and instead of typing ids you can browse the proxy's live catalog (`GET /models`),
 filter by keyword, and pick, during `/litellm-council:setup` or later via
-`/litellm-council:models`. Requires **Node ≥18** on PATH (for built-in `fetch`; the loadout
-already needs node for the hooks). Self-check the scripts (no proxy needed):
+`/litellm-council:models`. Requires **Node ≥22** on PATH — what CI tests; the loadout already
+needs node for the hooks. (Built-in `fetch` is the hard floor, so 18–20 will probably work, but
+is not tested.) Self-check the scripts (no proxy needed):
 `node plugins/litellm-council/scripts/test.mjs`.
 
 > **Privacy:** hosted council models (e.g. the NVIDIA NIM free tier) may use submitted
@@ -170,7 +171,7 @@ start), then run `/nvidia-council:setup` once — it saves to `~/.config/nvidia-
 Model ids carry **no `nvidia_nim/` prefix** — that prefix is a LiteLLM routing artifact.
 NVIDIA's free tier rate-limits **~40 requests/min per key, account-wide**, so the fan-out
 staggers its request starts and retries a `429` honouring `Retry-After` instead of dropping
-a model. Requires **Node ≥18**. Self-check (no key needed):
+a model. Requires **Node ≥22** (see above). Self-check (no key needed):
 `node plugins/nvidia-council/scripts/test.mjs`.
 
 > **Privacy:** the same ToS caveat applies, and more directly — NVIDIA's API Trial terms

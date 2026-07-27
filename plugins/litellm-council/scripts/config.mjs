@@ -78,7 +78,7 @@ export function die(msg, code = 1) {
 }
 
 export function requireConfig() {
-  if (typeof fetch !== 'function') die('this needs Node >=18 (built-in fetch not found) - check `node --version`');
+  if (typeof fetch !== 'function') die('this needs Node >= 22 - check `node --version` (built-in fetch not found, so this is older than 18)');
   const c = loadConfig();
   if (!c.baseUrl) die('set LITELLM_BASE_URL (or run /litellm-council:setup)');
   if (!c.apiKey) die('set LITELLM_API_KEY (or run /litellm-council:setup)');
@@ -86,7 +86,7 @@ export function requireConfig() {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
-  if (typeof fetch !== 'function') die('this needs Node >=18 (built-in fetch not found) - check `node --version`');
+  if (typeof fetch !== 'function') die('this needs Node >= 22 - check `node --version` (built-in fetch not found, so this is older than 18)');
   const c = loadConfig();
   const missing = [!c.baseUrl && 'LITELLM_BASE_URL', !c.apiKey && 'LITELLM_API_KEY'].filter(Boolean);
   if (missing.length) die(`missing ${missing.join(', ')} (set in env or run /litellm-council:setup)`);

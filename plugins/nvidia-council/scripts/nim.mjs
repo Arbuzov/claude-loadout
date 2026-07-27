@@ -99,7 +99,7 @@ export function die(msg, code = 1) {
 }
 
 export function requireConfig() {
-  if (typeof fetch !== 'function') die('this needs Node >=18 (built-in fetch not found) - check `node --version`');
+  if (typeof fetch !== 'function') die('this needs Node >= 22 - check `node --version` (built-in fetch not found, so this is older than 18)');
   const c = loadConfig();
   if (!c.apiKey) die('set NVIDIA_API_KEY (an nvapi-... key from build.nvidia.com), then run /nvidia-council:setup');
   return c;
@@ -348,7 +348,7 @@ async function readStdin() {
 
 const CMDS = {
   async config() {
-    if (typeof fetch !== 'function') die('this needs Node >=18 (built-in fetch not found) - check `node --version`');
+    if (typeof fetch !== 'function') die('this needs Node >= 22 - check `node --version` (built-in fetch not found, so this is older than 18)');
     const c = loadConfig();
     if (!c.apiKey) die('missing NVIDIA_API_KEY (set it in the environment, then run /nvidia-council:setup)');
     console.log(`base URL: ${c.baseUrl}${c.baseUrl === DEFAULT_BASE_URL ? ' (NVIDIA hosted)' : ' (override)'}`);

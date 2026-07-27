@@ -164,7 +164,7 @@ eq('save->reload round-trip: serialize output parses back to the same config',
   process.exit = (code) => { throw new Error(`exit:${code}`); };
   delete globalThis.fetch;
   try {
-    assert.throws(() => requireConfig(), /exit:1/, 'requireConfig dies when fetch is missing (Node <18)');
+    assert.throws(() => requireConfig(), /exit:1/, 'requireConfig dies when fetch is missing (a Node too old to have it)');
     n++;
   } finally {
     process.exit = realExit;
