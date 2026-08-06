@@ -7,9 +7,29 @@ import { requireConfig, joinUrl, die, redact } from './config.mjs';
 import { pathToFileURL } from 'node:url';
 
 const REASONING = /deepseek|nemotron|-r1|thinking|qwq/i; // slow reasoning models -> more output tokens
+const DEFAULT_TIMEOUT_MS = 300000;
+// Assumed throughput of the SLOWEST council-usable model, measured on a real review through a free
+// NIM tier: deepseek-v4-flash sustains ~14 tok/s where the fast ones do 70+. Deliberately BELOW the
+// measured 14, not above it - budget at 15 and the 300s deadline buys 4500 tokens that the very
+// model it was measured on needs 326s to produce, which is the original bug wearing a smaller hat.
+// The slack also pays for what isn't generation: prompt ingest, first-token latency, a 429 retry.
+const SLOW_TOKENS_PER_SEC = 12;
 
-export function maxTokensFor(model) {
-  return REASONING.test(model) ? 32768 : 8192;
+// The ceiling is what a model MAY spend; the timeout decides what it CAN deliver. Asking for more
+// than the deadline affords is worse than asking for less - the model generates past it, the fetch
+// aborts, and a review that would have come back truncated-but-usable comes back as nothing at all.
+// Measured on a 17KB diff: deepseek-v4-flash answered in 57s at max_tokens 2048 and timed out at
+// 32768. So cap the ask at what the clock can actually pay for.
+export function maxTokensFor(model, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const ceiling = REASONING.test(model) ? 32768 : 8192;
+  // Sanitize FIRST: Math.min(ceiling, NaN) is NaN and Math.max(512, NaN) is NaN too, so an
+  // unvalidated timeout would ship `max_tokens: NaN` and earn a 400 from the provider - a broken
+  // request dressed up as a broken model. Infinity lands here as well, and rightly so: it can't
+  // buy tokens either, since AbortSignal.timeout() rejects it outright.
+  const ms = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_TIMEOUT_MS;
+  // floor at 512: a short timeout must still ask for a usable answer, and a max_tokens <= 0 is
+  // rejected outright by most providers - which would turn "slow" into "broken"
+  return Math.max(512, Math.min(ceiling, Math.round((ms / 1000) * SLOW_TOKENS_PER_SEC)));
 }
 
 // Pull the reply out of a parsed response; return null when there's nothing usable (so the
@@ -26,8 +46,8 @@ export function extractReply(body) {
 
 // Query one model and return its reply text. Never throws: a network error or a non-JSON / empty
 // body degrades to a bounded, human-readable string so one model failing can't abort the council.
-export async function askModel(model, prompt, { baseUrl, apiKey, timeoutMs = 300000 }) {
-  const payload = { model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokensFor(model), temperature: 0.3 };
+export async function askModel(model, prompt, { baseUrl, apiKey, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+  const payload = { model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokensFor(model, timeoutMs), temperature: 0.3 };
   let res, raw;
   try {
     res = await fetch(joinUrl(baseUrl, 'chat/completions'), {

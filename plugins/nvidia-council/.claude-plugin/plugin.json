@@ -1,6 +1,6 @@
 {
   "name": "nvidia-council",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Cross-model council straight against NVIDIA's hosted NIM endpoint - no LiteLLM proxy, no MCP, no local process. Commands: /nvidia-council:second-opinion (review the current diff), :ask (any question), :doctor (health-check the council and swap out a dead/EOL model), :setup (save config once), :models (browse the live NVIDIA catalog and re-pick the council). Rate-limit aware: staggers request starts and retries 429 with Retry-After, so the free tier's ~40 req/min per key does not break a fan-out. Reads NVIDIA_API_KEY / NVIDIA_COUNCIL_MODELS (and NVIDIA_BASE_URL for a self-hosted NIM) from the environment or the setup file.",
   "author": { "name": "Serge Arbuzov" },
   "keywords": ["nvidia", "nim", "council", "code-review", "cross-model", "second-opinion"]

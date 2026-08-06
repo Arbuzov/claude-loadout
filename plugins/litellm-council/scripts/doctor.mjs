@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 // Health-check the council models on the LiteLLM proxy and flag which ones can't serve.
 // A model in LITELLM_COUNCIL_MODELS can silently rot: NVIDIA NIM ids reach end-of-life
-// (410 Gone), get pulled (404), or turn so slow they blow the request timeout. The council
-// commands then "time out and glitch" with no clear cause. This probes each model with a
-// cheap ping, RETRIES before condemning it (transient overload != dead), and classifies it
-// OK / SLOW / DEAD / UNREACHABLE so a command can decide whether to trigger a replacement.
+// (410 Gone) or get pulled (404), and the council commands then "time out and glitch" with no
+// clear cause. This probes each model with a cheap ping, RETRIES before condemning it (transient
+// overload != dead), and classifies it OK / SLOW / DEAD / UNREACHABLE.
+//
+// What a green verdict does NOT prove: that the model can carry a real review. The ping is a few
+// hundred tokens, so it measures the id and the key, not throughput - a model that answers "pong"
+// in 0.6s can still spend 2000 tokens thinking and return empty content on an actual diff. The
+// guard against that lives in ask-model.mjs (maxTokensFor caps the ask at what the timeout can
+// deliver), not here; a probe cheap enough to run on every model can't predict a long generation.
 //
 //   node doctor.mjs [--attempts N] [--timeout MS] [--slow MS] [--json] [model ...]
 //

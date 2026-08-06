@@ -160,9 +160,30 @@ export async function fetchModelIds({ baseUrl, apiKey, timeoutMs = 30000 }) {
 // ---------- chat ----------
 
 const REASONING = /deepseek|nemotron|-r1|thinking|qwq|reason/i; // these spend tokens on thinking
+const DEFAULT_TIMEOUT_MS = 300000;
+// Assumed throughput of the SLOWEST council-usable model, measured on a real review against the
+// free NIM tier: deepseek-v4-flash sustains ~14 tok/s where the fast ones do 70+. Deliberately
+// BELOW the measured 14, not above it - budget at 15 and the 300s deadline buys 4500 tokens that
+// the very model it was measured on needs 326s to produce, i.e. the original bug in miniature.
+// Here the slack matters doubly: `timeoutMs` is the budget for the whole call INCLUDING the 429
+// retry and the rate-limit slot wait, so generation never gets all of it.
+const SLOW_TOKENS_PER_SEC = 12;
 
-export function maxTokensFor(model) {
-  return REASONING.test(model) ? 32768 : 8192;
+// The ceiling is what a model MAY spend; the timeout decides what it CAN deliver. Asking for more
+// than the deadline affords is worse than asking for less - the model generates past it, the call
+// aborts, and a review that would have come back truncated-but-usable comes back as nothing at all.
+// Measured on a 17KB diff: deepseek-v4-flash answered in 57s at max_tokens 2048 and timed out at
+// 32768. So cap the ask at what the clock can actually pay for.
+export function maxTokensFor(model, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const ceiling = REASONING.test(model) ? 32768 : 8192;
+  // Sanitize FIRST: Math.min(ceiling, NaN) is NaN and Math.max(512, NaN) is NaN too, so an
+  // unvalidated timeout would ship `max_tokens: NaN` and earn a 400 from the provider - a broken
+  // request dressed up as a broken model. Infinity lands here as well, and rightly so: it can't
+  // buy tokens either, since AbortSignal.timeout() rejects it outright.
+  const ms = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_TIMEOUT_MS;
+  // floor at 512: a short timeout must still ask for a usable answer, and a max_tokens <= 0 is
+  // rejected outright by most providers - which would turn "slow" into "broken"
+  return Math.max(512, Math.min(ceiling, Math.round((ms / 1000) * SLOW_TOKENS_PER_SEC)));
 }
 
 // Reasoning NIMs emit their scratchpad either in a separate `reasoning_content` field or inline
@@ -224,11 +245,11 @@ export function httpKind(status) {
 // network. A 429 is retried once honouring Retry-After - on the free tier that is the common
 // failure. `timeoutMs` is the budget for the WHOLE call including that retry, and `ms` is always
 // measured from the first attempt, so a rate-limited model can't report a fast, healthy latency.
-export async function chat(model, prompt, { baseUrl, apiKey, timeoutMs = 300000, maxTokens, retries = 1 }) {
+export async function chat(model, prompt, { baseUrl, apiKey, timeoutMs = DEFAULT_TIMEOUT_MS, maxTokens, retries = 1 }) {
   const payload = {
     model,
     messages: [{ role: 'user', content: prompt }],
-    max_tokens: maxTokens ?? maxTokensFor(model),
+    max_tokens: maxTokens ?? maxTokensFor(model, timeoutMs),
     temperature: 0.3,
   };
   await claimSlot(); // queue for a rate-limit slot BEFORE the clock starts - waiting your turn

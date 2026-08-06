@@ -52,10 +52,36 @@ eq('filterModels literal (dot is not a regex)', filterModels(['a/b', 'axb'], 'a/
 eq('filterModels no match', filterModels(['a', 'b'], 'zzz'), []);
 
 // --- ask-model ---
-eq('maxTokensFor reasoning r1', maxTokensFor('nvidia_nim/deepseek-ai/deepseek-r1'), 32768);
-eq('maxTokensFor qwq', maxTokensFor('nvidia_nim/qwen/qwq-32b'), 32768);
-eq('maxTokensFor coder is NOT reasoning', maxTokensFor('nvidia_nim/qwen/qwen2.5-coder-32b-instruct'), 8192);
-eq('maxTokensFor gpt', maxTokensFor('openai/gpt-5.4'), 8192);
+// a huge timeout leaves the per-family ceiling as the binding limit
+eq('maxTokensFor reasoning r1 keeps the higher ceiling', maxTokensFor('nvidia_nim/deepseek-ai/deepseek-r1', 1e9), 32768);
+eq('maxTokensFor qwq', maxTokensFor('nvidia_nim/qwen/qwq-32b', 1e9), 32768);
+eq('maxTokensFor coder is NOT reasoning', maxTokensFor('nvidia_nim/qwen/qwen2.5-coder-32b-instruct', 1e9), 8192);
+eq('maxTokensFor gpt', maxTokensFor('openai/gpt-5.4', 1e9), 8192);
+// the bug this replaced: at the default 300s timeout a reasoning model was asked for 32768 tokens,
+// which at the ~14 tok/s a free-tier NIM sustains needs ~39 MINUTES. It generated past the
+// deadline and the fetch aborted with nothing, where a smaller ask returns a usable review.
+eq('maxTokensFor never asks for more than the timeout can deliver',
+  maxTokensFor('nvidia_nim/deepseek-ai/deepseek-r1'), 3600);
+eq('maxTokensFor scales with the timeout', maxTokensFor('openai/gpt-5.4', 60000), 720);
+// the rate must stay UNDER the slowest measured model (~14 tok/s), or the derived cap is itself
+// undeliverable: at 15 tok/s a 300s deadline buys 4500 tokens that model needs 326s to produce
+eq('maxTokensFor budget is deliverable by a 14 tok/s model inside its own timeout',
+  maxTokensFor('nvidia_nim/deepseek-ai/deepseek-r1') / 14 < 300, true);
+// a short timeout must still ask for something usable - max_tokens <= 0 is rejected outright,
+// which would turn a merely slow council into a broken one
+eq('maxTokensFor floors at 512 rather than asking for nothing', maxTokensFor('openai/gpt-5.4', 1000), 512);
+eq('maxTokensFor never returns a fractional token count',
+  Number.isInteger(maxTokensFor('openai/gpt-5.4', 33333)), true);
+// Math.min(ceiling, NaN) is NaN and Math.max(512, NaN) is NaN too, so an unsanitized timeout ships
+// `max_tokens: NaN` and the provider 400s - a broken request that reads as a broken model
+eq('maxTokensFor never emits NaN for a garbage timeout',
+  [maxTokensFor('openai/gpt-5.4', NaN), maxTokensFor('openai/gpt-5.4', undefined), maxTokensFor('openai/gpt-5.4', 'soon')],
+  [3600, 3600, 3600]);
+// Infinity buys no tokens either: AbortSignal.timeout() rejects it, so the call never even starts
+eq('maxTokensFor treats an infinite timeout as the default, not as unlimited budget',
+  maxTokensFor('nvidia_nim/deepseek-ai/deepseek-r1', Infinity), 3600);
+eq('maxTokensFor treats an expired/negative timeout as the default',
+  [maxTokensFor('openai/gpt-5.4', 0), maxTokensFor('openai/gpt-5.4', -1)], [3600, 3600]);
 eq('extractReply content', extractReply({ choices: [{ message: { content: 'hi' } }] }), 'hi');
 eq('extractReply empty content -> null (falls back to raw)', extractReply({ choices: [{ message: { content: '' } }] }), null);
 eq('extractReply falls back to reasoning_content when content is empty',

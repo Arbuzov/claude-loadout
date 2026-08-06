@@ -63,9 +63,36 @@ eq('filterModels case-insensitive substring', filterModels(['DeepSeek/R1', 'qwen
 eq('filterModels literal (dot is not a regex)', filterModels(['a/b', 'axb'], 'a/b'), ['a/b']);
 
 // --- chat plumbing ---
-eq('maxTokensFor reasoning r1', maxTokensFor('deepseek-ai/deepseek-r1'), 32768);
-eq('maxTokensFor nemotron', maxTokensFor('nvidia/llama-3.3-nemotron-super-49b-v1.5'), 32768);
-eq('maxTokensFor plain instruct', maxTokensFor('mistralai/mistral-large-3-675b-instruct-2512'), 8192);
+// a huge timeout leaves the per-family ceiling as the binding limit
+eq('maxTokensFor reasoning r1 keeps the higher ceiling', maxTokensFor('deepseek-ai/deepseek-r1', 1e9), 32768);
+eq('maxTokensFor nemotron', maxTokensFor('nvidia/llama-3.3-nemotron-super-49b-v1.5', 1e9), 32768);
+eq('maxTokensFor plain instruct', maxTokensFor('mistralai/mistral-large-3-675b-instruct-2512', 1e9), 8192);
+// the bug this replaced: at the default 300s timeout a reasoning model was asked for 32768 tokens,
+// which at the ~14 tok/s a free-tier NIM sustains needs ~39 MINUTES. It generated past the
+// deadline and the call aborted with nothing, where a smaller ask returns a usable review.
+eq('maxTokensFor never asks for more than the timeout can deliver',
+  maxTokensFor('deepseek-ai/deepseek-r1'), 3600);
+eq('maxTokensFor scales with the timeout', maxTokensFor('mistralai/mistral-small-4-119b-2603', 60000), 720);
+// the rate must stay UNDER the slowest measured model (~14 tok/s), or the derived cap is itself
+// undeliverable: at 15 tok/s a 300s deadline buys 4500 tokens that model needs 326s to produce
+eq('maxTokensFor budget is deliverable by a 14 tok/s model inside its own timeout',
+  maxTokensFor('deepseek-ai/deepseek-r1') / 14 < 300, true);
+// a short timeout must still ask for something usable - max_tokens <= 0 is rejected outright,
+// which would turn a merely slow council into a broken one
+eq('maxTokensFor floors at 512 rather than asking for nothing',
+  maxTokensFor('mistralai/mistral-small-4-119b-2603', 1000), 512);
+eq('maxTokensFor never returns a fractional token count',
+  Number.isInteger(maxTokensFor('mistralai/mistral-small-4-119b-2603', 33333)), true);
+// Math.min(ceiling, NaN) is NaN and Math.max(512, NaN) is NaN too, so an unsanitized timeout ships
+// `max_tokens: NaN` and the provider 400s - a broken request that reads as a broken model
+eq('maxTokensFor never emits NaN for a garbage timeout',
+  [maxTokensFor('mistralai/x', NaN), maxTokensFor('mistralai/x', undefined), maxTokensFor('mistralai/x', 'soon')],
+  [3600, 3600, 3600]);
+// Infinity buys no tokens either: AbortSignal.timeout() rejects it, so the call never even starts
+eq('maxTokensFor treats an infinite timeout as the default, not as unlimited budget',
+  maxTokensFor('deepseek-ai/deepseek-r1', Infinity), 3600);
+eq('maxTokensFor treats an expired/negative timeout as the default',
+  [maxTokensFor('mistralai/x', 0), maxTokensFor('mistralai/x', -1)], [3600, 3600]);
 eq('stripThink drops the scratchpad', stripThink('<think>musing</think>\nanswer'), 'answer');
 eq('stripThink keeps a think-only reply (budget ran out mid-thought)',
   stripThink('<think>musing</think>'), '<think>musing</think>');

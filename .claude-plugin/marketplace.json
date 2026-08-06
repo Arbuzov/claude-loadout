@@ -14,14 +14,14 @@
       "name": "litellm-council",
       "source": "./plugins/litellm-council",
       "description": "Cross-model council via your self-hosted LiteLLM proxy (Node-based, no MCP). Run /litellm-council:setup once (or set LITELLM_BASE_URL / LITELLM_API_KEY / LITELLM_COUNCIL_MODELS), then :second-opinion (review the current diff), :ask (any question), :debate (two rounds where models see each other's answers), :doctor (health-check the council and self-heal a dead/EOL model), or :models (browse the proxy's live catalog and re-pick the council).",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": { "name": "Serge Arbuzov" }
     },
     {
       "name": "nvidia-council",
       "source": "./plugins/nvidia-council",
       "description": "Cross-model council straight against NVIDIA's hosted NIM endpoint - no proxy in the path, so it works when your LiteLLM is down. Export NVIDIA_API_KEY (free nvapi- key from build.nvidia.com), run /nvidia-council:setup once, then :second-opinion (review the current diff), :ask (any question), :doctor (health-check the council and swap out a dead/EOL model), or :models (browse the live NVIDIA catalog and re-pick the council). Rate-limit aware for the free tier's ~40 req/min per key.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": { "name": "Serge Arbuzov" }
     },
     {
